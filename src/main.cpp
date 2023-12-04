@@ -211,6 +211,7 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
               } else {
                 // cout << "Task ist nicht in der Liste: " << urN << std::endl;
               }
+
               if (self->state.tasklist.empty()) {
                 cout << "Liste ist leer" << std::endl;
                 for (auto i : self->state.fact_list) {
