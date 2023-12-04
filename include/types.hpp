@@ -18,5 +18,10 @@ CAF_BEGIN_TYPE_ID_BLOCK(vslab, first_custom_type_id)
   // -- atoms ------------------------------------------------------------------
 
   CAF_ADD_ATOM(vslab, calc_atom)
+  
+  CAF_ADD_ATOM(vslab, pause_atom)
+  CAF_ADD_ATOM(vslab, resume_atom)
+  CAF_ADD_ATOM(vslab, client_atom)
+  CAF_ADD_ATOM(vslab, worker_atom)
 
 CAF_END_TYPE_ID_BLOCK(vslab)

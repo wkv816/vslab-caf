@@ -1,0 +1,25 @@
+#!/bin/bash
+
+cd build
+make
+cd ..
+
+osascript -e 'tell app "Terminal" to do script "./Desktop/VS-Praktikum2/vslab-caf/build/vslab -p 15920 -m server"'
+
+sleep 2 
+
+./build/vslab -p 15920 -m worker -w 5
+
+#./build/vslab -p 15920 -m client
+
+#osascript -e 'tell app "Terminal" to do script "./Desktop/VS-Praktikum2/vslab-caf/build/vslab -p 15920 -m worker"'
+
+#osascript -e 'tell app "Terminal" to do script "./Desktop/VS-Praktikum2/vslab-caf/build/vslab -p 15920 -m client"'
+
+
+
+
+
+
+
+
