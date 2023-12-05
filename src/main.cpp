@@ -43,6 +43,7 @@ std::mutex vector_mutex;
 enum class ActorState { Running, Paused };
 using namespace caf;
 using namespace std::chrono;
+namespace mp = boost::multiprecision;
 
 namespace {
 
@@ -63,14 +64,14 @@ struct config : actor_system_config {
 // -- helper_funktion
 // -------------------------------------------------------------------
 
-bool isPrime(int n) {
+bool isPrime(int512_t n) {
   // Handle special cases
   if (n <= 1) {
     return false;
   }
 
   // Check for divisibility up to the square root of n
-  for (int i = 2; i <= std::sqrt(n); ++i) {
+  for (int512_t i = 2; i <= sqrt(n); ++i) {
     if (n % i == 0) {
       // Found a divisor, not a prime number
       return false;
@@ -84,23 +85,23 @@ void printMessage(const std::string& message) {
   // Lock the mutex before using std::cout
   std::lock_guard<std::mutex> lock(cout_mutex);
 
-  // Print the message
+  // Print512_t the message
   std::cout << message << std::endl;
 
   // The lock_guard is automatically released when it goes out of scope
 }
-int generate_Random_Nr(int max, int min) {
+/* int512_t generate_Random_Nr(int512_t max, int512_t min) {
   // Seed the random number generator
   std::random_device rd;
-  std::mt19937 generator(rd());
+  std::mt19937_64 generator(rd());
 
   // Define the distribution
-  std::uniform_int_distribution<int> distribution(min, max);
+  std::uniform_int_distribution<int512_t> distribution(min, max);
 
   // Generate a random number
   return distribution(generator);
-}
-int pollard_rho(int n, int zufall) {
+} */
+int512_t pollard_rho(int512_t n, int512_t zufall) {
   // TODO: Implement me.
   // Set the duration to run the while loop
   const std::chrono::seconds duration(5);
@@ -108,16 +109,16 @@ int pollard_rho(int n, int zufall) {
   // Get the start time
   auto start_time = std::chrono::steady_clock::now();
 
-  int x = generate_Random_Nr(n, zufall);
+  int512_t x = 1234;
   cout << "generate_Random_Nr = " << x << std::endl;
-  int y = x;
-  int p = 1;
+  int512_t y = x;
+  int512_t p = 1;
 
   while (p == 1 || p == n) {
     x = (x * x + 1) % n;
     y = (y * y + 1) % n;
     y = (y * y + 1) % n;
-    p = std::gcd(std::abs(x - y), n);
+    p = mp::gcd(mp::abs(x - y), n);
 
     // Check if the loop has finished if not exit after duration
     if (std::chrono::steady_clock::now() - start_time >= duration) {
@@ -148,9 +149,9 @@ struct client_state {
   group grp;
 
   // The list of factors.
-  std::vector<int> fact_list;
+  std::vector<int512_t> fact_list;
   // The list of tasks.
-  std::vector<int> tasklist;
+  std::vector<int512_t> tasklist;
 
   bool isprinted = false;
 };
@@ -165,9 +166,11 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
 
   // TODO: Implement me.
 
-  int n = 37797063;
+  int512_t a = 3;
+
+  int512_t n = 1137047281562824484226171575219374004320812483047;
   self->state.tasklist.push_back(n);
-  self->send(grp, "worker_atom_v", n, 3, n);
+  self->send(grp, "worker_atom_v", n, a, n);
   cout << "behavior client started " << std::endl;
 
   /* auto start_time = high_resolution_clock::now();
@@ -179,7 +182,8 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
 
   return {
     // Handle messages
-    [=](const std::string& message, int p, int ndurchP, int urN) {
+    [=](const std::string& message, int512_t p, int512_t ndurchP,
+        int512_t urN) {
       if (message != "client_atom_v") {
         return;
       }
@@ -199,7 +203,7 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
 
         } else {
           self->state.tasklist.push_back(p);
-          self->send(grp, "worker_atom_v", p, 3, n);
+          self->send(grp, "worker_atom_v", p, a, n);
         }
 
         if (isPrime(ndurchP)) {
@@ -209,7 +213,7 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
 
         } else {
           self->state.tasklist.push_back(ndurchP);
-          self->send(self->state.grp, "worker_atom_v", ndurchP, 3, n);
+          self->send(self->state.grp, "worker_atom_v", ndurchP, a, n);
         }
       }
 
@@ -217,7 +221,7 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
         self->state.isprinted = true;
         std::string printlist = "Prime list of = { ";
         for (auto i : self->state.fact_list) {
-          printlist += std::to_string(i) + ", ";
+          printlist += to_string(i) + ", ";
         }
         printMessage(printlist + "}");
       }
@@ -253,12 +257,12 @@ behavior worker(stateful_actor<worker_state>* self, caf::group grp) {
   return {
     // Handle messages
 
-    [=](const std::string& message, int n, int zufall, int z) {
+    [=](const std::string& message, int512_t n, int512_t zufall, int512_t z) {
       if (message == "worker_atom_v") {
         // calculate cpu time abd do pollard rho algorithm
         auto cpu_time_start = high_resolution_clock::now();
 
-        int result = pollard_rho(n, zufall);
+        int512_t result = pollard_rho(n, zufall);
 
         auto cpu_time_end = high_resolution_clock::now();
         auto cpu_time_diff
@@ -267,7 +271,7 @@ behavior worker(stateful_actor<worker_state>* self, caf::group grp) {
           self->send(grp, "client_atom_v", result, n / result, n);
           std::string result_str
             = "Cpu time diff: " + std::to_string(cpu_time_diff.count())
-              + " seconds" + "/n" + "Result: " + std::to_string(result)
+              + " seconds" + "/n" + "Result: " + to_string(result)
               + "Worker sent result to client : ";
           printMessage(result_str);
         }
