@@ -149,9 +149,10 @@ struct client_state {
 
   // The list of factors.
   std::vector<int> fact_list;
-
   // The list of tasks.
   std::vector<int> tasklist;
+
+  bool isprinted = false;
 };
 
 behavior client(stateful_actor<client_state>* self, caf::group grp) {
@@ -160,6 +161,7 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
   self->state.grp = grp;
   self->state.fact_list = {};
   self->state.tasklist = {};
+  ;
 
   // TODO: Implement me.
 
@@ -175,53 +177,51 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
   aout(self) << "Elapsed time: " << elapsed_time.count() << " seconds" <<
   std::endl;*/
 
-  return {// Handle messages
-          [=](const std::string& message, int p, int ndurchP, int urN) {
-            try {
-              if (message == "client_atom_v") {
-                auto foundtask = std::find(self->state.tasklist.begin(),
-                                           self->state.tasklist.end(), urN);
-                if (foundtask != self->state.tasklist.end()) {
-                  self->state.tasklist.erase(foundtask);
+  return {
+    // Handle messages
+    [=](const std::string& message, int p, int ndurchP, int urN) {
+      if (message != "client_atom_v") {
+        return;
+      }
+      auto foundtask = std::find(self->state.tasklist.begin(),
+                                 self->state.tasklist.end(), urN);
+      if (foundtask != self->state.tasklist.end()) {
+        self->state.tasklist.erase(foundtask);
 
-                  cout << "the factorial of " << urN << " = " << p << " und  "
-                       << ndurchP << std::endl;
-                  if (isPrime(p)) {
-                    cout << "++++++++++++++ Primzahl " << p
-                         << " +++++++++++++++" << std::endl;
-                    //<< std::endl;
+        cout << "the factorial of " << urN << " = " << p << " und  " << ndurchP
+             << std::endl;
+        if (isPrime(p)) {
+          cout << "++++++++++++++ Primzahl " << p << " +++++++++++++++"
+               << std::endl;
+          //<< std::endl;
 
-                    self->state.fact_list.push_back(p);
+          self->state.fact_list.push_back(p);
 
-                  } else {
-                    self->state.tasklist.push_back(p);
-                    self->send(grp, "worker_atom_v", p, 3, n);
-                  }
+        } else {
+          self->state.tasklist.push_back(p);
+          self->send(grp, "worker_atom_v", p, 3, n);
+        }
 
-                  if (isPrime(ndurchP)) {
-                    cout << "++++++++++++++ Primzahl " << ndurchP
-                         << " +++++++++++++++" << std::endl;
-                    self->state.fact_list.push_back(ndurchP);
+        if (isPrime(ndurchP)) {
+          cout << "++++++++++++++ Primzahl " << ndurchP << " +++++++++++++++"
+               << std::endl;
+          self->state.fact_list.push_back(ndurchP);
 
-                  } else {
-                    self->state.tasklist.push_back(ndurchP);
-                    self->send(self->state.grp, "worker_atom_v", ndurchP, 3, n);
-                  }
-                }
-              } else {
-                // cout << "Task ist nicht in der Liste: " << urN << std::endl;
-              }
+        } else {
+          self->state.tasklist.push_back(ndurchP);
+          self->send(self->state.grp, "worker_atom_v", ndurchP, 3, n);
+        }
+      }
 
-              if (self->state.tasklist.empty()) {
-                cout << "Liste ist leer" << std::endl;
-                for (auto i : self->state.fact_list) {
-                  cout << i << std::endl;
-                }
-              }
-            } catch (const std::exception& e) {
-              std::cerr << e.what() << '\n';
-            }
-          }};
+      if (self->state.tasklist.empty() && self->state.isprinted == false) {
+        self->state.isprinted = true;
+        std::string printlist = "Prime list of = { ";
+        for (auto i : self->state.fact_list) {
+          printlist += std::to_string(i) + ", ";
+        }
+        printMessage(printlist + "}");
+      }
+    }};
   return {};
 }
 
@@ -263,7 +263,6 @@ behavior worker(stateful_actor<worker_state>* self, caf::group grp) {
         auto cpu_time_end = high_resolution_clock::now();
         auto cpu_time_diff
           = duration_cast<duration<double>>(cpu_time_end - cpu_time_start);
-
         if (result != -1) {
           self->send(grp, "client_atom_v", result, n / result, n);
           std::string result_str
