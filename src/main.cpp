@@ -63,7 +63,46 @@ struct config : actor_system_config {
 
 // -- helper_funktion
 // -------------------------------------------------------------------
+void printMessage(const std::string& message) {
+  // Lock the mutex before using std::cout
+  std::lock_guard<std::mutex> lock(cout_mutex);
 
+  // Print512_t the message
+  std::cout << message << std::endl;
+
+  // The lock_guard is automatically released when it goes out of scope
+}
+
+double deftime(std::chrono::steady_clock::time_point& start) {
+  auto end = std::chrono::steady_clock::now();
+  auto diff = end - start;
+  return std::chrono::duration<double>(diff).count();
+}
+
+void printWorkersendMessage(int512_t result, double cpu_time_diff) {
+  std::string result_str = "Cpu time diff: " + std::to_string(cpu_time_diff)
+                           + " seconds" + "/n" + "Result: " + to_string(result)
+                           + " Worker sent result to client : ";
+  printMessage(result_str);
+}
+
+void printFinalList(vector<int512_t>& list,
+                    std::chrono::steady_clock::time_point& start,
+                    double &cpu_time, bool& isprinted) {
+  isprinted = true;
+  double task_time_end = deftime(start);
+  std::cout << "Elapsed Task time: " << task_time_end << " seconds"
+            << std::endl;
+  std::cout << "Cpu time diff: " << cpu_time << " seconds" << std::endl;
+
+  std::string printlist = "Prime list of = { ";
+  for (auto i : list) {
+    printlist += to_string(i) + ", ";
+  }
+  printlist = printlist.substr(0, printlist.length() - 2);
+  printlist += "}";
+  std::cout << printlist << std::endl;
+}
 bool isPrime(int512_t n) {
   // Handle special cases
   if (n <= 1) {
@@ -81,15 +120,7 @@ bool isPrime(int512_t n) {
   // No divisors found, it's a prime number
   return true;
 }
-void printMessage(const std::string& message) {
-  // Lock the mutex before using std::cout
-  std::lock_guard<std::mutex> lock(cout_mutex);
 
-  // Print512_t the message
-  std::cout << message << std::endl;
-
-  // The lock_guard is automatically released when it goes out of scope
-}
 /* int512_t generate_Random_Nr(int512_t max, int512_t min) {
   // Seed the random number generator
   std::random_device rd;
@@ -105,8 +136,6 @@ int512_t pollard_rho(int512_t n, int512_t zufall) {
   // TODO: Implement me.
   // Set the duration to run the while loop
   const std::chrono::seconds duration(5);
-
-  // Get the start time
   auto start_time = std::chrono::steady_clock::now();
 
   int512_t x = 1234;
@@ -153,7 +182,11 @@ struct client_state {
   // The list of tasks.
   std::vector<int512_t> tasklist;
 
-  bool isprinted = false;
+  high_resolution_clock::time_point task_start_time;
+  bool isprinted;
+  double cpu_time_total;
+
+  ;
 };
 
 behavior client(stateful_actor<client_state>* self, caf::group grp) {
@@ -162,28 +195,27 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
   self->state.grp = grp;
   self->state.fact_list = {};
   self->state.tasklist = {};
+  self->state.isprinted = false;
+  self->state.cpu_time_total = 0.0;
   ;
 
   // TODO: Implement me.
 
   int512_t a = 3;
+  //int512_t n("1000602106143806596478722974273666950903906112131794745457338659266842446985022076792112309173975243506969710503");
+  int512_t n("1137047281562824484226171575219374004320812483047");
+  //int512_t n(8806715679);
 
-  int512_t n = 1137047281562824484226171575219374004320812483047;
+
+  self->state.task_start_time = high_resolution_clock::now();
   self->state.tasklist.push_back(n);
-  self->send(grp, "worker_atom_v", n, a, n);
+  self->send(grp, "worker_atom_v", n, a, n,0.0);
   cout << "behavior client started " << std::endl;
-
-  /* auto start_time = high_resolution_clock::now();
-
-  auto end_time = high_resolution_clock::now();
-  auto elapsed_time = duration_cast<duration<double>>(end_time - start_time);
-  aout(self) << "Elapsed time: " << elapsed_time.count() << " seconds" <<
-  std::endl;*/
 
   return {
     // Handle messages
-    [=](const std::string& message, int512_t p, int512_t ndurchP,
-        int512_t urN) {
+    [=](const std::string& message, int512_t p, int512_t ndurchP, int512_t urN,
+        double cpu_time) {
       if (message != "client_atom_v") {
         return;
       }
@@ -191,39 +223,33 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
                                  self->state.tasklist.end(), urN);
       if (foundtask != self->state.tasklist.end()) {
         self->state.tasklist.erase(foundtask);
+        self->state.cpu_time_total += cpu_time;
 
         cout << "the factorial of " << urN << " = " << p << " und  " << ndurchP
              << std::endl;
-        if (isPrime(p)) {
-          cout << "++++++++++++++ Primzahl " << p << " +++++++++++++++"
-               << std::endl;
-          //<< std::endl;
-
+        if (is_probable_prime(p)) {
+          cout << "++++ Primzahl " << p << " ++++" << std::endl;
           self->state.fact_list.push_back(p);
 
         } else {
           self->state.tasklist.push_back(p);
-          self->send(grp, "worker_atom_v", p, a, n);
+          self->send(grp, "worker_atom_v", p, a, n,0.0);
         }
+        
 
-        if (isPrime(ndurchP)) {
-          cout << "++++++++++++++ Primzahl " << ndurchP << " +++++++++++++++"
-               << std::endl;
+        if (is_probable_prime(ndurchP)) {
+          cout << "++++ Primzahl " << ndurchP << " ++++" << std::endl;
           self->state.fact_list.push_back(ndurchP);
 
         } else {
           self->state.tasklist.push_back(ndurchP);
-          self->send(self->state.grp, "worker_atom_v", ndurchP, a, n);
+          self->send(self->state.grp, "worker_atom_v", ndurchP, a, n,0.0);
         }
       }
 
       if (self->state.tasklist.empty() && self->state.isprinted == false) {
-        self->state.isprinted = true;
-        std::string printlist = "Prime list of = { ";
-        for (auto i : self->state.fact_list) {
-          printlist += to_string(i) + ", ";
-        }
-        printMessage(printlist + "}");
+        printFinalList(self->state.fact_list, self->state.task_start_time,
+                       self->state.cpu_time_total, self->state.isprinted);
       }
     }};
   return {};
@@ -239,7 +265,8 @@ void run_client(actor_system& sys, const config& cfg) {
   }
 }
 
-// -- WORKER -------------------------------------------------------------------
+// -- WORKER
+// -------------------------------------------------------------------
 
 // State specific to each worker.
 struct worker_state {
@@ -257,23 +284,20 @@ behavior worker(stateful_actor<worker_state>* self, caf::group grp) {
   return {
     // Handle messages
 
-    [=](const std::string& message, int512_t n, int512_t zufall, int512_t z) {
+    [=](const std::string& message, int512_t n, int512_t zufall, int512_t z,
+        double cpu_time) {
       if (message == "worker_atom_v") {
         // calculate cpu time abd do pollard rho algorithm
         auto cpu_time_start = high_resolution_clock::now();
 
         int512_t result = pollard_rho(n, zufall);
 
-        auto cpu_time_end = high_resolution_clock::now();
-        auto cpu_time_diff
-          = duration_cast<duration<double>>(cpu_time_end - cpu_time_start);
+        double cpu_time_diff = deftime(cpu_time_start);
+
         if (result != -1) {
-          self->send(grp, "client_atom_v", result, n / result, n);
-          std::string result_str
-            = "Cpu time diff: " + std::to_string(cpu_time_diff.count())
-              + " seconds" + "/n" + "Result: " + to_string(result)
-              + "Worker sent result to client : ";
-          printMessage(result_str);
+          self->send(grp, "client_atom_v", result, n / result, n,
+                     cpu_time_diff);
+          printWorkersendMessage(result, cpu_time_diff);
         }
       }
     },
@@ -301,7 +325,8 @@ void run_worker(actor_system& sys, const config& cfg) {
   sys.await_all_actors_done();
 }
 
-// -- MAIN ---------------------------------------------------------------------
+// -- MAIN
+// ---------------------------------------------------------------------
 
 // dispatches to run_* function depending on selected mode
 void caf_main(actor_system& sys, const config& cfg) {
