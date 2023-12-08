@@ -121,6 +121,13 @@ bool isPrime(int512_t n) {
   return true;
 }
 
+
+int512_t generate_Random_Nr(int512_t max, int512_t min) {
+std::random_device rd;
+std::mt19937_64 generator(rd());
+mp::uniform_int_distribution<int512_t> distribution(min, max);
+return distribution(generator);
+}
 /* int512_t generate_Random_Nr(int512_t max, int512_t min) {
   // Seed the random number generator
   std::random_device rd;
@@ -138,7 +145,7 @@ int512_t pollard_rho(int512_t n, int512_t zufall) {
   const std::chrono::seconds duration(5);
   auto start_time = std::chrono::steady_clock::now();
 
-  int512_t x = 1234;
+  int512_t x = generate_Random_Nr(n,1);
   cout << "generate_Random_Nr = " << x << std::endl;
   int512_t y = x;
   int512_t p = 1;
@@ -202,8 +209,8 @@ behavior client(stateful_actor<client_state>* self, caf::group grp) {
   // TODO: Implement me.
 
   int512_t a = 3;
-  //int512_t n("1000602106143806596478722974273666950903906112131794745457338659266842446985022076792112309173975243506969710503");
-  int512_t n("1137047281562824484226171575219374004320812483047");
+  int512_t n("1000602106143806596478722974273666950903906112131794745457338659266842446985022076792112309173975243506969710503");
+  //int512_t n("1137047281562824484226171575219374004320812483047");
   //int512_t n(8806715679);
 
 
